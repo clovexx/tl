@@ -1,4 +1,4 @@
-use std::{ptr, simd::*};
+use std::{ptr, simd::{*, cmp::*}};
 
 use crate::simd::fallback;
 
