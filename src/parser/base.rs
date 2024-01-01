@@ -66,6 +66,19 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub(crate) fn new_bytes(input: &[u8], options: ParserOptions) -> Parser {
+        Parser {
+            stack: Vec::with_capacity(4),
+            options,
+            tags: Vec::new(),
+            stream: Stream::new(input),
+            ast: Vec::new(),
+            ids: HashMap::new(),
+            classes: HashMap::new(),
+            version: None
+        }
+    }
+
     #[inline(always)]
     fn register_tag(&mut self, node: Node<'a>) -> NodeHandle {
         self.tags.push(node);

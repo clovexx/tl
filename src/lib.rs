@@ -52,6 +52,26 @@ pub fn parse(input: &str, options: ParserOptions) -> Result<VDom<'_>, ParseError
     Ok(VDom::from(parser))
 }
 
+/// Parses the given input &[u8]
+///
+/// This function will be used to avoid some overhead of parsing into utf-8.
+///
+/// # Errors
+/// Throughout the parser it is assumed that spans never overflow a `u32`.
+/// To prevent this, this function will return an error if the input string length would overflow a `u32`.
+///
+/// # Example
+/// ```
+/// # use tl::*;
+/// let dom = parse_bytes(b"<div>Hello, world!</div>", ParserOptions::default()).unwrap();
+/// assert_eq!(dom.query_selector("div").unwrap().count(), 1);
+/// ```
+pub fn parse_bytes(input: &[u8], options: ParserOptions) -> Result<VDom<'_>, ParseError> {
+    let mut parser = Parser::new_bytes(input, options);
+    parser.parse()?;
+    Ok(VDom::from(parser))
+}
+
 /// Parses a query selector
 ///
 /// # Example
