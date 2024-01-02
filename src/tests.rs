@@ -674,8 +674,10 @@ mod query_selector {
         assert_query_selector_text(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p .z .y", Vec::from(["PASS".to_owned()]));
         assert_query_selector_text(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p > .z > .y", Vec::from(["PASS".to_owned()]));
 
-        assert_query_selector_count(r#"<main><div><p class="hello world" id="id"><span>cond1</span><section>cond2</section></p></div></main>"#, "div > .hello.world#id > span, main section", 2);
+        assert_query_selector_text(r#"<div><p class="hi">hello</p></div>"#, "div p", Vec::from(["hello".to_owned()]));
+        assert_query_selector_text(r#"<div><p class="hi"><span>hello</span></p></div>"#, "div > .hi > span", Vec::from(["hello".to_owned()]));
 
+        assert_query_selector_count(r#"<main><div><p class="hello world" id="id"><span>cond1</span><section>cond2</section></p></div></main>"#, "div > .hello.world#id > span, main section", 2);
         assert_query_selector_text(r#"<main><div><p class="hello world" id="id"><span>cond1</span><section>cond2</section></p></div></main>"#, "div > .hello.world#id > span, main section", Vec::from(["cond1".to_owned(), "cond2".to_owned()]))
     }
 }
