@@ -75,7 +75,7 @@ impl<'a> Parser<'a> {
             ast: Vec::new(),
             ids: HashMap::new(),
             classes: HashMap::new(),
-            version: None
+            version: None,
         }
     }
 
@@ -131,8 +131,7 @@ impl<'a> Parser<'a> {
 
         // If we do not find any characters that are not identifiers
         // then we are probably at the end of the stream
-        let end = simd::search_non_ident(bytes)
-            .unwrap_or_else(|| self.stream.len() - start);
+        let end = simd::search_non_ident(bytes).unwrap_or_else(|| self.stream.len() - start);
 
         self.stream.idx += end;
         Some(self.stream.slice(start, start + end))
@@ -148,7 +147,7 @@ impl<'a> Parser<'a> {
                 .eq(constants::COMMENT_END)
             {
                 self.stream.advance_by(constants::COMMENT_END.len());
-                return self.stream.slice(start, self.stream.idx)
+                return self.stream.slice(start, self.stream.idx);
             }
 
             self.stream.advance();
@@ -232,10 +231,12 @@ impl<'a> Parser<'a> {
         self.stream.advance();
 
         let closing_tag_name = self.read_to(b'>');
-        
+
         self.stream.expect_and_skip_cond(b'>');
 
-        let closing_tag_matches_parent = self.stack.last()
+        let closing_tag_matches_parent = self
+            .stack
+            .last()
             .and_then(|last_handle| last_handle.get(self))
             .and_then(|last_item| last_item.as_tag())
             .map_or(false, |last_tag| last_tag.name() == closing_tag_name);
