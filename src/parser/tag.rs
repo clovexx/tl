@@ -20,6 +20,9 @@ pub type RawAttributesMap<'a> = InlineHashMap<Bytes<'a>, Option<Bytes<'a>>, INLI
 /// The type of vector for children of an HTML tag
 pub type RawChildren = InlineVec<NodeHandle, INLINED_SUBNODES>;
 
+/// The type of parent of an HTML tag
+pub type RawParent = NodeHandle;
+
 /// Stores all attributes of an HTML tag, as well as additional metadata such as `id` and `class`
 #[derive(Debug, Clone)]
 pub struct Attributes<'a> {
@@ -228,6 +231,7 @@ pub struct HTMLTag<'a> {
     pub(crate) _name: Bytes<'a>,
     pub(crate) _attributes: Attributes<'a>,
     pub(crate) _children: RawChildren,
+    pub(crate) _parent: Option<RawParent>,
     pub(crate) _raw: Bytes<'a>,
 }
 
@@ -238,17 +242,19 @@ impl<'a> HTMLTag<'a> {
         name: Bytes<'a>,
         attr: Attributes<'a>,
         children: InlineVec<NodeHandle, INLINED_SUBNODES>,
+        parent: Option<NodeHandle>,
         raw: Bytes<'a>,
     ) -> Self {
         Self {
             _name: name,
             _attributes: attr,
             _children: children,
+            _parent: parent,
             _raw: raw,
         }
     }
 
-    /// Returns a wrapper around the children of this HTML tag
+    /// Returns a wrapper around the children of this HTML tag.
     #[inline]
     pub fn children(&self) -> Children<'a, '_> {
         Children(self)
@@ -257,6 +263,11 @@ impl<'a> HTMLTag<'a> {
     /// Returns a mutable wrapper around the children of this HTML tag.
     pub fn children_mut(&mut self) -> ChildrenMut<'a, '_> {
         ChildrenMut(self)
+    }
+
+    /// Returns a wrapper around the parent of this HTML tag.
+    pub fn parent(&self) -> Parent {
+        Parent(self)
     }
 
     /// Returns the name of this HTML tag
@@ -482,6 +493,22 @@ impl<'a> HTMLTag<'a> {
             }
         }
         None
+    }
+}
+
+/// A thin wrapper around the parent of [`HTMLTag`]
+#[derive(Debug, Clone)]
+pub struct Parent<'a, 'b>(&'b HTMLTag<'a>);
+
+impl<'a, 'b> Parent<'a, 'b> {
+    /// Returns parent node if exists
+    pub fn get(&self, parser: &'a Parser) -> Option<&Node> {
+        self.0._parent.map_or(None, |parent| parent.get(parser))
+    }
+
+    /// Utility method that checks node is parent for other.
+    pub fn is_parent_for(&self, node: NodeHandle) -> bool {
+        self.0._children.iter().any(|handle| *handle == node)
     }
 }
 

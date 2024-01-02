@@ -223,6 +223,11 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline]
+    fn get_parent(&self) -> Option<NodeHandle> {
+        self.stack.last().copied()
+    }
+
     fn read_end(&mut self) {
         self.stream.advance();
 
@@ -344,6 +349,7 @@ impl<'a> Parser<'a> {
                     name.into(),
                     attr,
                     InlineVec::new(),
+                    self.get_parent(),
                     self.stream.slice(start, self.stream.idx).into(),
                 )));
 

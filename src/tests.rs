@@ -660,6 +660,48 @@ fn comment_end() {
 }
 
 #[test]
+fn tag_parent() {
+    fn assert_parent_rel(input: &str, node: usize, parent: usize) {
+        let dom = parse(input, Default::default()).unwrap();
+        let el = force_as_tag(&dom.nodes()[node]).parent();
+
+        assert_eq!(
+            force_as_tag(el.get(dom.parser()).unwrap()).raw(),
+            force_as_tag(&dom.nodes()[parent]).raw()
+        )
+    }
+
+    fn assert_have_parent(input: &str, node: usize, must_have: bool) {
+        let dom = parse(input, Default::default()).unwrap();
+        let el = force_as_tag(&dom.nodes()[node]);
+
+        assert_eq!(el.parent().get(dom.parser()).is_some(), must_have)
+    }
+
+    assert_parent_rel(r#"<div>b<p>a</p></div>"#, 2, 0);
+    assert_parent_rel(r#"<div><p>a</p></div>"#, 1, 0);
+    assert_parent_rel(r#"<div><p><span></span></p></div>"#, 1, 0);
+    assert_parent_rel(r#"<div><p><span></span></p></div>"#, 2, 1);
+    assert_parent_rel(r#"<div><p><span>a</span></p></div>"#, 2, 1);
+    assert_parent_rel(r#"<div>b<p><span>a</span></p></div>"#, 3, 2);
+    assert_parent_rel(r#"<div>b<p><span>a</span></p></div>"#, 2, 0);
+
+    assert_have_parent(r#"<div></div>"#, 0, false);
+    assert_have_parent(r#"<div>a</div>"#, 0, false);
+    assert_have_parent(r#"<div><p></p></div>"#, 0, false);
+    assert_have_parent(r#"<div><p></p></div>"#, 1, true);
+    assert_have_parent(r#"<div><p>a</p></div>"#, 0, false);
+    assert_have_parent(r#"<div><p>a</p></div>"#, 1, true);
+    assert_have_parent(r#"<div><p><span></span></p></div>"#, 2, true);
+    assert_have_parent(r#"<div><p><span></span></p></div>"#, 1, true);
+    assert_have_parent(r#"<div><p><span></span></p></div>"#, 0, false);
+    assert_have_parent(r#"<div>b<p>a</p></div>"#, 2, true);
+    assert_have_parent(r#"<div>b<p>a</p></div>"#, 0, false);
+    assert_have_parent(r#"<div>b<p><span>a</span></p></div>"#, 3, true);
+    assert_have_parent(r#"<div>b<p><span>a</span></p></div>"#, 2, true);
+    assert_have_parent(r#"<div>b<p><span>a</span></p></div>"#, 0, false);
+}
+#[test]
 fn tag_all_children() {
     fn assert_len(input: &str, len: usize) {
         let dom = parse(input, Default::default()).unwrap();
