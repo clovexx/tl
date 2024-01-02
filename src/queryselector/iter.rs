@@ -49,7 +49,7 @@ impl<'a, 'b, Q: QueryIterable<'a>> Iterator for QuerySelectorIterator<'a, 'b, Q>
             let node = self.collection.get(self.parser, self.index);
             self.index += 1;
             if let Some((node, id)) = node {
-                let matches = self.selector.matches(node);
+                let matches = self.selector.matches(node, self.parser);
 
                 if matches {
                     return Some(id);

@@ -1,4 +1,4 @@
-use crate::Node;
+use crate::{Node, Parser};
 
 /// A single query selector node
 #[derive(Debug, Clone)]
@@ -35,7 +35,7 @@ pub enum Selector<'a> {
 
 impl<'a> Selector<'a> {
     /// Checks if the given node matches this selector
-    pub fn matches<'b>(&self, node: &Node<'b>) -> bool {
+    pub fn matches<'b>(&self, node: &Node<'b>, parser: &Parser<'b>) -> bool {
         match self {
             Self::Tag(tag) => node.as_tag().map_or(false, |t| t._name.as_bytes().eq(*tag)),
             Self::Id(id) => node
@@ -44,8 +44,8 @@ impl<'a> Selector<'a> {
             Self::Class(class) => node
                 .as_tag()
                 .map_or(false, |t| t._attributes.is_class_member(*class)),
-            Self::And(a, b) => a.matches(node) && b.matches(node),
-            Self::Or(a, b) => a.matches(node) || b.matches(node),
+            Self::And(a, b) => a.matches(node, parser) && b.matches(node, parser),
+            Self::Or(a, b) => a.matches(node, parser) || b.matches(node, parser),
             Self::All => true,
             Self::Attribute(attribute) => node
                 .as_tag()
