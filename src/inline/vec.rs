@@ -406,8 +406,16 @@ mod tests {
 
         {
             let mut xc = x.clone();
+            let hook = std::panic::take_hook();
+
+            std::panic::set_hook(Box::new(|_| {
+                // empty hook to suppress unnecessary panic output
+            }));
+
             // out of bounds index must panic
             assert!(std::panic::catch_unwind(move || xc.remove(0)).is_err());
+
+            std::panic::set_hook(hook);
         }
 
         for i in 0..4 {
