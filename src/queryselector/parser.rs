@@ -40,38 +40,97 @@ impl<'a> Parser<'a> {
         self.stream.slice(start, self.stream.idx)
     }
 
-    fn parse_combinator(&mut self, left: Selector<'a>) -> Option<Selector<'a>> {
+    /// Parses a query selector list
+    ///
+    /// A query selector list is a list of complex selectors separated by
+    /// commas. This is the entire query selector string.
+    pub fn selector(&mut self) -> Option<Selector<'a>> {
+        let mut left = self.parse_complex_selector(false)?;
+
+        while let Some(right) = self.parse_complex_selector(false) {
+            left = Selector::Or(Box::new(left), Box::new(right));
+        }
+
+        Some(left)
+    }
+
+    /// Parses a complex query selector
+    ///
+    /// A complex selector is series of compound selectors separated by combinators.
+    fn parse_complex_selector(&mut self, nested: bool) -> Option<Selector<'a>> {
+        let mut left = self.parse_compound_selector()?;
         let has_whitespaces = self.skip_whitespaces();
 
-        let tok = if let Some(tok) = self.stream.current_cpy() {
-            tok
-        } else {
+        if nested {
             return Some(left);
-        };
+        }
 
-        let combinator = match tok {
-            b',' => {
-                self.stream.advance();
-                let right = self.selector()?;
-                Selector::Or(Box::new(left), Box::new(right))
+        while let Some(tok) = self.stream.current_cpy() {
+            match tok {
+                b',' => {
+                    self.stream.advance();
+                    return Some(left);
+                }
+                b'>' => {
+                    self.stream.advance();
+                    let right = self.parse_complex_selector(true)?;
+                    left = Selector::Parent(Box::new(left), Box::new(right));
+                }
+                _ if has_whitespaces => {
+                    let right = self.parse_complex_selector(true)?;
+                    left = Selector::Descendant(Box::new(left), Box::new(right));
+                }
+                _ if !has_whitespaces => {
+                    let right = self.parse_complex_selector(true)?;
+                    left = Selector::And(Box::new(left), Box::new(right));
+                }
+                _ => unreachable!(),
             }
-            b'>' => {
-                self.stream.advance();
-                let right = self.selector()?;
-                Selector::Parent(Box::new(left), Box::new(right))
-            }
-            _ if has_whitespaces => {
-                let right = self.selector()?;
-                Selector::Descendant(Box::new(left), Box::new(right))
-            }
-            _ if !has_whitespaces => {
-                let right = self.selector()?;
-                Selector::And(Box::new(left), Box::new(right))
-            }
-            _ => unreachable!(),
-        };
+        }
 
-        Some(combinator)
+        Some(left)
+    }
+
+    /// Parses a compound query selector
+    ///
+    /// A compound selector is a series of simple selectors.
+    fn parse_compound_selector(&mut self) -> Option<Selector<'a>> {
+        let mut result = None;
+
+        self.skip_whitespaces();
+        while let Some(right) = match self.stream.current_cpy() {
+            Some(b'#') => {
+                self.stream.advance();
+                let id = self.read_identifier();
+                Some(Selector::Id(id))
+            }
+            Some(b'.') => {
+                self.stream.advance();
+                let class = self.read_identifier();
+                Some(Selector::Class(class))
+            }
+            Some(b'*') => {
+                self.stream.advance();
+                Some(Selector::All)
+            }
+            Some(b'[') => {
+                self.stream.advance();
+                self.parse_attribute()
+            }
+            Some(tok) if util::is_ident(tok) => {
+                let tag = self.read_identifier();
+                Some(Selector::Tag(tag))
+            }
+            _ => None,
+        } {
+            if let Some(left) = result {
+                result = Some(Selector::And(Box::new(left), Box::new(right)));
+            } else {
+                result = Some(right);
+            }
+        }
+
+        result
     }
 
     fn parse_attribute(&mut self) -> Option<Selector<'a>> {
@@ -113,39 +172,5 @@ impl<'a> Parser<'a> {
             _ => return None,
         };
         Some(ty)
-    }
-
-    /// Parses a full selector
-    pub fn selector(&mut self) -> Option<Selector<'a>> {
-        self.skip_whitespaces();
-        let tok = self.stream.current_cpy()?;
-
-        let left = match tok {
-            b'#' => {
-                self.stream.advance();
-                let id = self.read_identifier();
-                Selector::Id(id)
-            }
-            b'.' => {
-                self.stream.advance();
-                let class = self.read_identifier();
-                Selector::Class(class)
-            }
-            b'*' => {
-                self.stream.advance();
-                Selector::All
-            }
-            b'[' => {
-                self.stream.advance();
-                self.parse_attribute()?
-            }
-            _ if util::is_ident(tok) => {
-                let tag = self.read_identifier();
-                Selector::Tag(tag)
-            }
-            _ => return None,
-        };
-
-        self.parse_combinator(left)
     }
 }

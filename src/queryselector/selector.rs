@@ -2,6 +2,7 @@ use crate::{Node, Parser};
 
 /// A single query selector node
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum Selector<'a> {
     /// Tag selector: foo
     Tag(&'a [u8]),
@@ -47,6 +48,25 @@ impl<'a> Selector<'a> {
             Self::And(a, b) => a.matches(node, parser) && b.matches(node, parser),
             Self::Or(a, b) => a.matches(node, parser) || b.matches(node, parser),
             Self::All => true,
+            Self::Parent(a, b) => node
+                .as_tag()
+                .and_then(|tag| {
+                    Some(a.matches(tag.parent().get(parser)?, parser) && b.matches(node, parser))
+                })
+                .unwrap_or_default(),
+            Self::Descendant(a, b) => {
+                if !b.matches(node, parser) {
+                    return false
+                }
+                let mut curr = node;
+                while let Some(ancestor) = curr.as_tag().and_then(|t| t._parent?.get(parser)) {
+                    if a.matches(ancestor, parser) {
+                        return true
+                    }
+                    curr = ancestor;
+                }
+                false
+            }
             Self::Attribute(attribute) => node
                 .as_tag()
                 .map_or(false, |t| t._attributes.get(*attribute).is_some()),
@@ -69,7 +89,6 @@ impl<'a> Selector<'a> {
                     attr.split_whitespace().any(|x| x == value)
                 })
             }
-            _ => false,
         }
     }
 }
