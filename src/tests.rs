@@ -1,5 +1,5 @@
 use crate::{parse, parse_owned, Bytes};
-use crate::{parser::*, HTMLTag, Node};
+use crate::{parser::*, queryselector::{Parser, Selector}, HTMLTag, Node};
 
 fn force_as_tag<'a, 'b>(actual: &'a Node<'b>) -> &'a HTMLTag<'b> {
     match actual {
@@ -610,6 +610,73 @@ mod query_selector {
         };
 
         assert_eq!(value, Some("hello".to_string()));
+    }
+
+    #[test]
+    fn parse_parent_descendant_selector() {
+        fn assert_selector(selector: &str, expected: Selector) {
+            let mut parser = Parser::new(selector.as_bytes());
+            assert_eq!(parser.selector().unwrap(), expected);
+        }
+
+        fn assert_query_selector_count(input: &str, selector: &str, expected_count: usize) {
+            let dom = parse(input, Default::default()).unwrap();
+            let selector = dom.query_selector(selector).unwrap();
+            assert_eq!(selector.count(), expected_count)
+        }
+
+        fn assert_query_selector_text(input: &str, selector: &str, expected_text: Vec<String>) {
+            let dom = parse(input, Default::default()).unwrap();
+            let selector = dom.query_selector(selector).unwrap();
+
+            assert_eq!(selector.map(|handle| handle.get(dom.parser()).unwrap().inner_text(dom.parser())).collect::<Vec<_>>(), expected_text)
+        }
+
+        assert_selector(".a > .b", Selector::Parent(Box::new(Selector::Class(&[97])), Box::new(Selector::Class(&[98]))));
+        assert_selector(".a > .b > .c", Selector::Parent(Box::new(Selector::Parent(Box::new(Selector::Class(&[97])), Box::new(Selector::Class(&[98])))), Box::new(Selector::Class(&[99]))));
+
+        assert_selector(".a .b", Selector::Descendant(Box::new(Selector::Class(&[97])), Box::new(Selector::Class(&[98]))));
+        assert_selector(".a .b .c", Selector::Descendant(Box::new(Selector::Descendant(Box::new(Selector::Class(&[97])), Box::new(Selector::Class(&[98])))), Box::new(Selector::Class(&[99]))));
+
+        assert_selector(
+            "div > .hello.world#id > span, main section",
+            Selector::Or(
+                Box::new(Selector::Parent(
+                    Box::new(Selector::Parent(
+                        Box::new(Selector::Tag(&[100, 105, 118])),
+                        Box::new(Selector::And(
+                            Box::new(Selector::And(
+                                Box::new(Selector::Class(&[104, 101, 108, 108, 111])),
+                                Box::new(Selector::Class(&[119, 111, 114, 108, 100]))
+                            )),
+                            Box::new(Selector::Id(&[105, 100]))
+                        ))
+                    )),
+                    Box::new(Selector::Tag(&[115, 112, 97, 110]))
+                )),
+                Box::new(Selector::Descendant(
+                    Box::new(Selector::Tag(&[109, 97, 105, 110])),
+                    Box::new(Selector::Tag(&[115, 101, 99, 116, 105, 111, 110]))
+                ))
+            )
+        );
+
+        assert_query_selector_count(r#"<div><meta property="og:title" content="hello" /></div>"#, "div meta", 1);
+        assert_query_selector_count(r#"<div><meta property="og:title" content="hello" /></div>"#, "div > meta", 1);
+        assert_query_selector_count(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "div div", 1);
+        assert_query_selector_text(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "div div", Vec::from(["PASS".to_owned()]));
+        assert_query_selector_count(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p div", 2);
+        assert_query_selector_count(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p > div > div", 1);
+        assert_query_selector_text(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p > div > div", Vec::from(["PASS".to_owned()]));
+        assert_query_selector_count(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, ".z .y", 1);
+        assert_query_selector_text(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, ".z .y", Vec::from(["PASS".to_owned()]));
+        assert_query_selector_count(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p .y", 1);
+        assert_query_selector_text(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p .z .y", Vec::from(["PASS".to_owned()]));
+        assert_query_selector_text(r#"<p><div class="z"><div class="y">PASS</div></div></p>"#, "p > .z > .y", Vec::from(["PASS".to_owned()]));
+
+        assert_query_selector_count(r#"<main><div><p class="hello world" id="id"><span>cond1</span><section>cond2</section></p></div></main>"#, "div > .hello.world#id > span, main section", 2);
+
+        assert_query_selector_text(r#"<main><div><p class="hello world" id="id"><span>cond1</span><section>cond2</section></p></div></main>"#, "div > .hello.world#id > span, main section", Vec::from(["cond1".to_owned(), "cond2".to_owned()]))
     }
 }
 
